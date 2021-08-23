@@ -301,6 +301,324 @@ func GetGeneratingSampleData() string {
 		`
 }
 
+func GetStores() string {
+	return `
+SELECT
+	CAST(fa.FirmaID as varchar)  FirmaID
+   ,RTRIM(f.DESCR) Name
+   ,ISNULL(fp.DESCR,'') group_name
+   ,CASE WHEN ff.Dostup=2 THEN '1' ELSE '0' END as active
+   ,CASE WHEN fa.FirmaID=99 THEN '1' ELSE '0' END as central
+   ,fa.Addres	Addres
+   ,CAST(ROUND(fa.geo_lat,7) as varchar)	latitude
+   ,CAST(ROUND(fa.geo_lon,7) as varchar)	longitude
+   ,'0'			deleted
+   ,CONVERT(varchar(10),ff.DataStart,102)	open_at
+   ,''			close_at
+   ,fa.region	region
+   ,'1'			in_shelf
+FROM Analiz_EN.[dbo].[FirmaReadyABM] fa (NOLOCK)
+INNER JOIN $Справочник.Фирмы f (NOLOCK) ON  fa.FirmaID=CAST(f.CODE as int)
+INNER JOIN Analiz_EN.[dbo].[Firma] ff (NOLOCK) ON ff.FirmaID=fa.FirmaID
+LEFT OUTER JOIN $Справочник.Фирмы fp (NOLOCK) ON fp.ID=f.ParentID
+WHERE fa.FirmaID NOT IN (99,96,71,137) AND ff.Dostup=2
+ AND CAST(ISNULL(fp.CODE,'0') as int) <> 168 -- ШОУ-РУМ
+   `
+}
+
+func GetSkuHeader() string {
+	return `
+	SET NOCOUNT ON
+	DECLARE @str varchar(300), @lev int
+
+	SET @str=''
+	SET @lev=0
+
+
+	INSERT INTO #ArticleFilter (ArticleID)
+	SELECT DISTINCT
+		SKU
+	FROM #__tmp__ ls
+
+SET NOCOUNT OFF
+
+
+	SELECT
+		 SKU, Name
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,1)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,1) END as Additional_1
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,2)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,2) END as Additional_2
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,3)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,3) END as Additional_3
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,4)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,4) END as Additional_4
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,5)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,5) END as Additional_5
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,6)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,6) END as Additional_6
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,7)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,7) END as Additional_7
+		,B.Additional_8
+		,B.Additional_9
+		,B.Additional_10
+		,B.Additional_11
+		,B.Additional_12
+--		,ISNULL(rc.Ostatok,0.000) as Additional_13
+		,0.000 as Additional_13
+		,CASE WHEN cc.Товар is NULL THEN 0 ELSE 1 END as Additional_14
+		,B.Dimension
+		,B.Measure1
+		,0  as Measure2
+		,B.Passiv
+		,B.Fresh
+	FROM
+	(
+		SELECT
+			 a.ArticleID as SKU
+			,t.DESCR as Name
+			,REPLACE(LTRIM(RTRIM(dbo.GetFullPath_$Справочник.Номенклатура(t.ID,'',0))),LTRIM(RTRIM(t.DESCR)),'') as FullPath
+			,CASE WHEN $t.ТипТовара = $Перечисление.ТипыТоваров.Весовой THEN 'весовой' ELSE 'невесовой' END as Additional_8
+			,ISNULL(LTRIM(RTRIM(s.DESCR)),'') as Additional_9
+			,$t.СТМ as Additional_10
+			,$t.VIP as Additional_11
+			,$t.Ассортимент as Additional_12
+			,LTRIM(RTRIM(e.DESCR)) as Dimension
+			,$t.Пассивный as Passiv
+			,CASE WHEN $t.ТипТовара = $Перечисление.ТипыТоваров.Весовой THEN 1 ELSE $t.КоэффициентВеса END as Measure1
+			,$t.Фреш as Fresh
+			,t.ID
+		FROM #ArticleFilter as a
+		INNER JOIN #ListSkuAll la ON la.ArticleID=a.ArticleID
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON CAST(t.CODE as int) =a.ArticleID
+		INNER JOIN $Справочник.ЕдиницыИзмерений as e (NOLOCK) ON e.ID=$t.БазоваяЕдиница
+		LEFT OUTER JOIN $Справочник.Страны as s (NOLOCK) ON s.ID=$t.Страна AND t.ISMARK=0 AND t.ISFOLDER=2
+	) B
+	LEFT OUTER JOIN #ConnectedCategories as cc ON cc.Товар=B.ID
+--	LEFT OUTER JOIN #ОстаткиРЦ rc ON rc.ArticleID=B.SKU
+	ORDER BY B.SKU
+	`
+}
+
+func GetSkuHeaderNew() string {
+	return `
+	SET NOCOUNT ON
+	DECLARE @str varchar(300), @lev int
+
+	SET @str=''
+	SET @lev=0
+
+	TRUNCATE TABLE #ArticleFilter
+
+	INSERT INTO #ArticleFilter (ArticleID)
+	SELECT DISTINCT
+		SKU
+	FROM #__tmp__ ls
+
+	if object_id('tempdb..#ArticleGroup') is not null
+		  DROP TABLE #ArticleGroup
+	CREATE TABLE #ArticleGroup (ArticleID int, primary key clustered (ArticleID))
+
+	INSERT INTO #ArticleGroup (ArticleID)
+	SELECT DISTINCT t.ParentCode
+	FROM #ArticleFilter aa
+	INNER JOIN Analiz_EN.dbo.Tovar t (NOLOCK) ON t.ArticleID=aa.ArticleID
+
+	exec Analiz_EN.dbo.PutObjectListGroup '#ArticleGroup'
+
+	INSERT INTO #ArticleFilter
+	SELECT ArticleID FROM #ArticleGroup
+
+SET NOCOUNT OFF
+
+
+	SELECT
+		 SKU, Name, ArticleGroupID
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,1)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,1) END as Additional_1
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,2)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,2) END as Additional_2
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,3)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,3) END as Additional_3
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,4)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,4) END as Additional_4
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,5)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,5) END as Additional_5
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,6)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,6) END as Additional_6
+		,CASE WHEN LTRIM(RTRIM(dbo.GetGroupFromLevel(FullPath,7)))=LTRIM(RTRIM(Name)) THEN '' ELSE dbo.GetGroupFromLevel(FullPath,7) END as Additional_7
+		,B.Additional_8
+		,B.Additional_9
+		,B.Additional_10
+		,B.Additional_11
+		,B.Additional_12
+--		,ISNULL(rc.Ostatok,0.000) as Additional_13
+		,0.000 as Additional_13
+		,CASE WHEN cc.Товар is NULL THEN 0 ELSE 1 END as Additional_14
+		,B.Dimension
+		,B.Measure1
+		,0  as Measure2
+		,B.Passiv
+		,B.Fresh
+		,CAST(B.ISFOLDER as int) ISFOLDER, B.main_dimension_uid, B.Fractional
+		,ISNULL(vn.property,'') brand_uid
+	FROM
+	(
+		SELECT
+			 a.ArticleID as SKU
+			,ISNULL(CAST(pt.CODE as int),0) ArticleGroupID
+			,t.DESCR as Name
+			,REPLACE(LTRIM(RTRIM(dbo.GetFullPath_$Справочник.Номенклатура(t.ID,'',0))),LTRIM(RTRIM(t.DESCR)),'') as FullPath
+			,CASE 
+			   WHEN t.ISFOLDER = 1 THEN ''
+			   ELSE
+				CASE WHEN $t.ТипТовара = $Перечисление.ТипыТоваров.Весовой THEN 'весовой' ELSE 'невесовой' END
+			 END  as Additional_8
+			,ISNULL(LTRIM(RTRIM(s.DESCR)),'') as Additional_9
+			,$t.СТМ as Additional_10
+			,$t.VIP as Additional_11
+			,$t.Ассортимент as Additional_12
+			,LTRIM(RTRIM(ISNULL(e.DESCR,''))) as Dimension
+			,$t.Пассивный as Passiv
+			,CASE WHEN $t.ТипТовара = $Перечисление.ТипыТоваров.Весовой THEN 1 ELSE $t.КоэффициентВеса END as Measure1
+			,$t.Фреш as Fresh
+			,t.ID
+			,t.ISFOLDER
+--			,ISNULL(LTRIM(RTRIM(e.CODE)),'') as main_dimension_uid  	-- Уникальный идентификатор ОСНОВНОЙ единицы измерения
+			,CASE WHEN e.CODE is NULL THEN '' ELSE LTRIM(RTRIM(t.CODE))+'/'+LTRIM(RTRIM(e.CODE)) END as main_dimension_uid  	-- Уникальный идентификатор ОСНОВНОЙ единицы измерения
+			, CASE WHEN $t.ТипТовара=$Перечисление.ТипыТоваров.Штучный THEN 0 ELSE 1 END as Fractional
+		FROM #ArticleFilter as a
+		LEFT OUTER JOIN #ListSkuAll la ON la.ArticleID=a.ArticleID
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON CAST(t.CODE as int) =a.ArticleID
+		LEFT OUTER JOIN $Справочник.Номенклатура as pt (NOLOCK) ON pt.ID=t.ParentID
+		LEFT OUTER JOIN $Справочник.ЕдиницыИзмерений as e (NOLOCK) ON e.ID=$t.БазоваяЕдиница
+		LEFT OUTER JOIN $Справочник.Страны as s (NOLOCK) ON s.ID=$t.Страна AND t.ISMARK=0 AND t.ISFOLDER=2
+		WHERE t.ISFOLDER=1 OR la.ArticleID is NOT NULL
+	) B
+	LEFT OUTER JOIN #ConnectedCategories as cc ON cc.Товар=B.ID
+	LEFT OUTER JOIN Analiz_EN.[dbo].[_IM_GetVendor] vn (NOLOCK) ON vn.ArticleID=B.SKU
+--	LEFT OUTER JOIN #ОстаткиРЦ rc ON rc.ArticleID=B.SKU
+	ORDER BY B.SKU
+	`
+}
+
+func GetBrands() string {
+	return `
+SELECT
+	*
+FROM
+(
+	SELECT DISTINCT
+		property, property_name
+	FROM Analiz_EN.[dbo].[_IM_GetVendor] vn
+	INNER JOIN #ArticleFilter a ON a.ArticleID=vn.ArticleID
+) A
+ORDER BY A.property_name
+	`
+}
+
+func GetSuppliers() string {
+	return `
+SELECT 
+	am.ClientID
+   ,CASE WHEN $k.Пассивный=1 THEN 0 ELSE 1 END as Active
+   ,LTRIM(RTRIM(k.DESCR)) as Name
+   ,$ПоследнееЗначение.Контрагенты.ПочтовыйАдрес(k.ID,GETDATE()) as Address
+   ,$k.Телефоны as Phone
+   ,$k.EMail as EMail
+FROM 
+(
+   SELECT DISTINCT XX.ClientID
+   FROM
+   (
+	   SELECT ClientID FROM #ClientFilter
+
+	   UNION ALL
+
+	   SELECT ClientID FROM ClientLife
+
+	   UNION ALL
+
+	   SELECT
+		   CAST(k.CODE as int) as ClientID
+	   FROM $Справочник.ГрафикЗаказовАВМ as a (NOLOCK)
+	   INNER JOIN $Справочник.Контрагенты as k (NOLOCK) ON k.ID=$a.Поставщик
+	   WHERE a.ISMARK = 0
+   ) XX
+) am
+INNER JOIN $Справочник.Контрагенты as k (NOLOCK) ON CAST(k.CODE as int)=am.ClientID
+WHERE am.ClientID <> 0
+ORDER BY k.DESCR
+	`
+}
+
+func GetSchedule() string {
+	return `
+SELECT
+	sz.CODE
+   , f.Code as FirmaID, $f.КраткоеНазвание as fname
+   , k.CODE as SupplierCode, k.DESCR as Поставщик
+   , $sz.РазделительЗаказов as OrderSplitMark
+   , CASE WHEN $sz.Активный=0 THEN 0 ELSE $sgm.Активный END as  Активный
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN $sz.Периодичность ELSE 7 END as Периодичность  
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Понедельник > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Monday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Вторник > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as TuesDay
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Среда > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Wednesday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Четверг > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Thursday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Пятница > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Friday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Суббота > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Saturday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Воскресенье > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Sunday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN $sz.ЧастотаФормирования ELSE CASE WHEN $sz.Периодичность=7 THEN $sz.ЧастотаФормирования ELSE 4 END END as Frequence 
+--	, $sz.ЧислаМесяца as DaysOfMonth
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN $sz.ЧислаМесяца ELSE '' END  as DaysOfMonth
+   , $st.ИмяВКонфигураторе as Сотрудник
+
+   ,CONVERT(varchar(10),$sz.ДатаНачала,102) as BeginDate
+   , $sz.EMail as EMail
+   , $sz.АвтоОтправка as AutoSend
+   , $sz.ВремяОтправки as Time
+   
+   , ISNULL(stk.DESCR,'') as Comments	
+   , $sz.Дни as Дни
+FROM $Справочник.ГрафикЗаказовАВМ as sz (NOLOCK)
+INNER JOIN $Справочник.Контрагенты as k (NOLOCK) ON k.ID=$sz.Поставщик
+INNER JOIN $Справочник.Сотрудники as st (NOLOCK) ON st.ID=$sz.Сотрудник
+LEFT OUTER JOIN $Справочник.Сотрудники as stk (NOLOCK) ON stk.ID=$sz.КатегорийныйМенеджер
+INNER JOIN $Справочник.ГрафикЗаказовАВМ_Магазины as sgm (NOLOCK) ON sgm.ParentExt=sz.ID
+INNER JOIN $Справочник.Фирмы as f (NOLOCK) ON f.ID=$sgm.Магазин
+INNER JOIN $Справочник.Супермаркеты as sp (NOLOCK) ON sp.ID=$f.Супермаркет
+WHERE $sp.Доступен=2 AND sz.ISMARK=0
+ORDER BY sz.DESCR, $f.КраткоеНазвание
+   `
+}
+
+func GetScheduleNew() string {
+	return `
+SELECT
+	sz.CODE
+   , f.Code as FirmaID, $f.КраткоеНазвание as fname
+   , k.CODE as SupplierCode, k.DESCR as Поставщик
+   , $sz.РазделительЗаказов as OrderSplitMark
+   , CASE WHEN $sz.Активный=0 THEN 0 ELSE $sgm.Активный END as  Активный
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN $sz.Периодичность ELSE 7 END as Периодичность  
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Понедельник > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Monday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Вторник > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as TuesDay
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Среда > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Wednesday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Четверг > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Thursday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Пятница > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Friday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Суббота > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Saturday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN CAST($sgm.ПлечоПоставки as varchar) ELSE CASE WHEN $sz.Воскресенье > 0 THEN CAST($sgm.ПлечоПоставки as varchar) ELSE '' END END as Sunday
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN $sz.ЧастотаФормирования ELSE CASE WHEN $sz.Периодичность=7 THEN $sz.ЧастотаФормирования ELSE 4 END END as Frequence 
+--	, $sz.ЧислаМесяца as DaysOfMonth
+   , CASE WHEN $sz.Периодичность = 30 AND SUBSTRING($sz.Дни,1,1) <> '2' THEN $sz.ЧислаМесяца ELSE '' END  as DaysOfMonth
+   , $st.ИмяВКонфигураторе as Сотрудник
+
+   ,REPLACE(CONVERT(varchar(10),$sz.ДатаНачала,102),'.','-') as BeginDate
+   , $sz.EMail as EMail
+   , $sz.АвтоОтправка as AutoSend
+   , $sz.ВремяОтправки as Time
+   
+   , ISNULL(stk.DESCR,'') as Comments	
+   , $sz.Дни as Дни
+FROM $Справочник.ГрафикЗаказовАВМ as sz (NOLOCK)
+INNER JOIN $Справочник.Контрагенты as k (NOLOCK) ON k.ID=$sz.Поставщик
+INNER JOIN $Справочник.Сотрудники as st (NOLOCK) ON st.ID=$sz.Сотрудник
+LEFT OUTER JOIN $Справочник.Сотрудники as stk (NOLOCK) ON stk.ID=$sz.КатегорийныйМенеджер
+INNER JOIN $Справочник.ГрафикЗаказовАВМ_Магазины as sgm (NOLOCK) ON sgm.ParentExt=sz.ID
+INNER JOIN $Справочник.Фирмы as f (NOLOCK) ON f.ID=$sgm.Магазин
+INNER JOIN $Справочник.Супермаркеты as sp (NOLOCK) ON sp.ID=$f.Супермаркет
+WHERE $sp.Доступен=2 AND sz.ISMARK=0
+ORDER BY sz.DESCR, $f.КраткоеНазвание
+   `
+}
+
 func Get() string {
 	return `
 	`
@@ -315,4 +633,11 @@ func InitScript() {
 	ScriptMain["КоличествоНеПришедшихМагазинов"] = GetNumberOfNotArrivedStores()
 	ScriptMain["СписокНеПришедшихМагазинов"] = GetGetListOfNotArrivedStores()
 	ScriptMain["ФормированиеВыборкиДанных"] = GetGeneratingSampleData()
+	ScriptMain["ПолучитьStores"] = GetStores()
+	ScriptMain["ПолучитьSkuHeader"] = GetSkuHeader()
+	ScriptMain["ПолучитьSkuHeaderNew"] = GetSkuHeaderNew()
+	ScriptMain["ПолучитьBrands"] = GetBrands()
+	ScriptMain["ПолучитьSuppliers"] = GetSuppliers()
+	ScriptMain["ПолучитьSchedule"] = GetSchedule()
+	ScriptMain["ПолучитьScheduleNew"] = GetScheduleNew()
 }
