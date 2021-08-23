@@ -619,6 +619,474 @@ ORDER BY sz.DESCR, $f.КраткоеНазвание
    `
 }
 
+func GetListYesterdayBody_1() string {
+	return `
+	INSERT INTO #ListYesterdayBody(ArticleID, FirmaID, Block,BlockPrev,Active)
+	SELECT
+		ly.ArticleID, ly.FirmaID, ly.Block, ly.BlockPrev, ISNULL(za.InMatrix,0) as Active
+	FROM
+	(
+		 SELECT DISTINCT
+		   ArticleID, FirmaID, Block, BlockPrev
+		 FROM
+		 (
+		SELECT
+		   am.SKU ArticleID, am.FirmaID, 0 Block, 0 BlockPrev
+		FROM Analiz_EN.dbo.ArticleFromShopForAMBDaily am (NOLOCK)
+		INNER JOIN Analiz_EN.dbo.FirmaEN f ON f.FirmaID=am.FirmaID
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON CAST(t.CODE as int)=am.SKU
+		LEFT OUTER JOIN SecurityBuffer as sb (NOLOCK) ON sb.Tovar=t.ID AND sb.Shop=f.ID
+		LEFT OUTER JOIN Analiz_EN.dbo.ArticleShopActiveNotUpload afsn (NOLOCK) ON afsn.ArticleID=am.SKU AND afsn.FirmaID=am.FirmaID
+		WHERE am.Data=:Дат AND
+		 ((am.Active > 0 AND ((afsn.ArticleID is NULL AND afsn.FirmaID is NULL) OR (ISNULL(sb.SB,0.0) > 0)))
+		OR
+		  (am.Ostatok + am.Return_Qnt + am.Sale_Qnt + am.Qnt_Out_Move + am.Qnt_Out_WriteOff) > 0
+		 )
+	
+		UNION ALL
+	
+		SELECT
+		   am.SKU ArticleID, am.FirmaID, 0 Block, 0 BlockPrev
+		FROM Analiz_EN.dbo.ArticleFromShopForAMBDaily am (NOLOCK)
+		INNER JOIN Analiz_EN.dbo.FirmaEN f ON f.FirmaID=am.FirmaID
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON CAST(t.CODE as int)=am.SKU
+		LEFT OUTER JOIN SecurityBuffer as sb (NOLOCK) ON sb.Tovar=t.ID AND sb.Shop=f.ID
+		LEFT OUTER JOIN Analiz_EN.dbo.ArticleShopActiveNotUpload afsn (NOLOCK) ON afsn.ArticleID=am.SKU AND afsn.FirmaID=am.FirmaID
+		WHERE am.Data=DATEADD(d,-1,:Дат) AND
+		 ((am.Active > 0 AND ((afsn.ArticleID is NULL AND afsn.FirmaID is NULL) OR (ISNULL(sb.SB,0.0) > 0)))
+		OR
+		  (am.Ostatok + am.Return_Qnt + am.Sale_Qnt + am.Qnt_Out_Move + am.Qnt_Out_WriteOff) > 0
+		 )
+	
+		UNION ALL
+	
+		SELECT
+		   am.SKU ArticleID, am.FirmaID, 0 Block, 0 BlockPrev
+		FROM Analiz_EN.dbo.ArticleFromShopForAMBDaily am (NOLOCK)
+		INNER JOIN Analiz_EN.dbo.FirmaEN f ON f.FirmaID=am.FirmaID
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON CAST(t.CODE as int)=am.SKU
+		LEFT OUTER JOIN SecurityBuffer as sb (NOLOCK) ON sb.Tovar=t.ID AND sb.Shop=f.ID
+		LEFT OUTER JOIN Analiz_EN.dbo.ArticleShopActiveNotUpload afsn (NOLOCK) ON afsn.ArticleID=am.SKU AND afsn.FirmaID=am.FirmaID
+		WHERE am.Data=DATEADD(d,-2,:Дат) AND
+		 ((am.Active > 0 AND ((afsn.ArticleID is NULL AND afsn.FirmaID is NULL) OR (ISNULL(sb.SB,0.0) > 0)))
+		OR
+		  (am.Ostatok + am.Return_Qnt + am.Sale_Qnt + am.Qnt_Out_Move + am.Qnt_Out_WriteOff) > 0
+		 )
+	
+		UNION ALL
+	
+		SELECT
+		   am.SKU ArticleID, am.FirmaID, 0 Block, 0 BlockPrev
+		FROM Analiz_EN.dbo.ArticleFromShopForAMBDaily am (NOLOCK)
+		INNER JOIN Analiz_EN.dbo.FirmaEN f ON f.FirmaID=am.FirmaID
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON CAST(t.CODE as int)=am.SKU
+		LEFT OUTER JOIN SecurityBuffer as sb (NOLOCK) ON sb.Tovar=t.ID AND sb.Shop=f.ID
+		LEFT OUTER JOIN Analiz_EN.dbo.ArticleShopActiveNotUpload afsn (NOLOCK) ON afsn.ArticleID=am.SKU AND afsn.FirmaID=am.FirmaID
+		WHERE am.Data=DATEADD(d,-3,:Дат) AND
+		 ((am.Active > 0 AND ((afsn.ArticleID is NULL AND afsn.FirmaID is NULL) OR (ISNULL(sb.SB,0.0) > 0)))
+		OR
+		  (am.Ostatok + am.Return_Qnt + am.Sale_Qnt + am.Qnt_Out_Move + am.Qnt_Out_WriteOff) > 0
+		 )
+	
+		UNION ALL
+		
+		SELECT
+		   ArticleID, FirmaID, 0 Block, 0 BlockPrev
+		FROM
+		(
+			SELECT
+				_T.ArticleID, _T.Tovar, f.FirmaID, f.ID Shop, f.Name
+			FROM
+			(
+				SELECT
+					CAST(t.CODE as int)  ArticleID, t.ID Tovar
+				FROM $Справочник.Номенклатура as t (NOLOCK)
+				WHERE $t.ДатаСоздания >= DATEADD(m,-3,GETDATE())
+			) _T, Analiz_EN.dbo.FirmaEN f
+			WHERE f.Dostup=2
+		) _TT
+		LEFT OUTER JOIN SecurityBuffer as sb (NOLOCK) ON sb.Tovar=_TT.Tovar AND sb.Shop=_TT.Shop
+		WHERE ISNULL(sb.SB,0.0) > 0
+		 ) ZZ
+	) ly
+		`
+}
+
+func GetListYesterdayBody_2() string {
+	return `
+	DECLARE @d int
+	`
+}
+
+func GetListYesterdayBody_3() string {
+	return `
+	DECLARE @d int
+	`
+}
+
+func GetListSkuAll() string {
+	return `
+	INSERT INTO #ListSkuAll
+	SELECT
+		 ls.ArticleID, Block, BlockPrev
+		,SUM(ISNULL(am1.Ostatok,0.0)) as Ostatok
+		,SUM(ISNULL(am2.Ostatok,0.0)) as OstatokPrev
+	FROM #ListYesterdayBody as ls
+	INNER JOIN Analiz_EN.dbo.FirmaReadyABM  fra (NOLOCK) ON fra.FirmaID=ls.FirmaID
+	INNER JOIN $Справочник.Номенклатура as t (NOLOCK) 
+		ON CAST(t.CODE as int)=ls.ArticleID
+	INNER JOIN $Справочник.ЕдиницыИзмерений as e (NOLOCK) ON e.ID=$t.БазоваяЕдиница
+	LEFT OUTER JOIN Analiz_EN.dbo.ArticleFromShopForAMBDaily as am1 (NOLOCK) ON am1.SKU=ls.ArticleID AND am1.FirmaID=ls.FirmaID AND am1.Data = :Дат
+	LEFT OUTER JOIN Analiz_EN.dbo.ArticleFromShopForAMBDaily as am2 (NOLOCK) ON am2.SKU=ls.ArticleID AND am2.FirmaID=ls.FirmaID AND am2.Data = :ДатаПред
+	WHERE 1=1
+			  AND t.ID NOT IN (SELECT val FROM #ТоварыИсключения) 
+			  AND t.ISMARK=0 AND t.ISFOLDER=2
+	GROUP BY
+		 ls.ArticleID, Block, BlockPrev
+		`
+}
+
+func GetCurrentBalancesRC() string {
+	return `
+	SELECT
+		 A.ArticleID
+		,CASE WHEN (A.Ostatok-ISNULL(B.Quantity,0)) <= 0 THEN 0 ELSE (A.Ostatok-ISNULL(B.Quantity,0)) END Ostatok
+	FROM
+	(
+		SELECT
+			 $t.КодЦентра as ArticleID
+			,Рег.КоличествоОстаток as Ostatok
+		FROM $РегистрОстатки.ПартииТоваров(:Дат,,Склад = $Константа.ОсновнойСклад,(Товар),(Количество)) as Рег
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=Рег.Товар
+		WHERE Рег.КоличествоОстаток > 0
+	) A
+	LEFT OUTER JOIN
+	(
+		SELECT
+			 $t.КодЦентра as ArticleID
+			,SUM($ds.Количество) as Quantity
+		FROM _1SJOURN as j (NOLOCK)
+		INNER JOIN $Документ.ОтгрузкаИзРЦ as d (NOLOCK) ON d.IDDOC=j.IDDOC
+		INNER JOIN $ДокументСтроки.ОтгрузкаИзРЦ as ds (NOLOCK) ON ds.IDDOC=d.IDDOC
+		INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$ds.Товар
+		WHERE j.Date_Time_IDDOC > CONVERT(varchar(8),DATEADD(d,-90,:Дат),112)
+		  AND j.ISMARK=0
+		  AND j.CLOSED & 1 = 0
+		GROUP BY
+			 $t.КодЦентра
+	) B ON B.ArticleID=A.ArticleID
+	`
+}
+
+func GetListProductsOnShares() string {
+	return `
+	SELECT
+		    B.Товар
+		   ,B.ПозицияДок
+		   ,B.ДатаНачала as ДатаНачала
+		   ,B.ДатаКонца as ДатаКонца
+		   ,B.Цена as Цена
+		   ,B.РозничнаяЦена
+	INTO #ТоварыНаАкции
+	FROM
+	(
+		SELECT
+		    A.Товар
+		   ,A.ПозицияДок
+		   ,$f.ДатаНачала as ДатаНачала
+		   ,$f.ДатаКонца as ДатаКонца
+		   ,$f.Цена as Цена
+		   ,$ПоследнееЗначение.Номенклатура.РозничнаяЦена(A.Товар,:Дат~~) as РозничнаяЦена
+		FROM
+		(
+		   SELECT
+		         f.ParentEXT as  Товар,
+		        MAX($f.ПозицияДок) as ПозицияДок
+		   FROM $Справочник.ФиксированныеЦеныНаТовары as f (NOLOCK)
+		   WHERE $f.ДатаНачала <= :Дат AND $f.ДатаКонца >= :Дат AND SUBSTRING($f.ПозицияДок,1,1) > '0'
+		   GROUP BY 
+		             f.ParentEXT
+		) A
+		INNER JOIN $Справочник.ФиксированныеЦеныНаТовары as f (NOLOCK) ON f.ParentEXT=A.Товар AND $f.ПозицияДок=A.ПозицияДок
+	) B
+	WHERE Цена>=РозничнаяЦена
+	`
+}
+
+func GetSelectForAbmFromRC() string {
+	return `
+	SELECT	*
+	FROM
+	(
+			SELECT DISTINCT
+				 :Дат~~ as Data
+				,$t.КодЦентра as SKU
+				,(
+					SELECT TOP 1
+						$ed.ШтрихКод
+					FROM $Справочник.Единицы as ed (NOLOCK)
+					WHERE ed.ParentEXT=t.ID AND $ed.ШтрихКод <> '' AND SUBSTRING($ed.ШтрихКод,1,1) <> '2'
+				 ) as Code
+				,CASE 
+					WHEN $t.Заблокирован=1 THEN 0
+					WHEN $t.ВМатрицеЗаказов=0 THEN 0
+					WHEN $t.Уцененный = 1 THEN 0
+					ELSE 1
+				 END as Active
+				,CASE WHEN $t.ВУпаковке = 0 THEN 1 ELSE $t.ВУпаковке END MOQ
+				,CASE WHEN $t.ВУпаковке = 0 THEN 1 ELSE $t.ВУпаковке END USQ
+				,CASE WHEN ISNULL(Рег.КоличествоОстаток,0.0) <=0 THEN 0.0 ELSE ISNULL(Рег.КоличествоОстаток,0.0) END as Ostatok
+				,ISNULL(COALESCE(B.ClientID,$Kontr.КодЦентра),0) as ClientID
+				,ISNULL(B.DataZak,CAST('19000101' as dateTime)) DataZak
+				,CASE WHEN ISNULL(B.Цена,0) = 0 THEN
+								(
+									SELECT TOP 1
+										$rc1.Цена as Цена
+									FROM $Регистр.ЦеныСпецификации as rc1 (NOLOCK)
+									WHERE rc1.DATE_TIME_IDDOC < :Дат~ AND $rc1.Поставщик <> $ПустойИД
+									  AND $rc1.Товар = t.ID
+									  AND $rc1.Поставщик = $t.ОсновнойПоставщик
+									ORDER BY rc1.DATE_TIME_IDDOC DESC
+								)
+							ELSE B.Цена END as PurchasePrice
+				,$ПоследнееЗначение.Номенклатура.РозничнаяЦена(t.ID,:Дат~~) as SalePrice 
+				,ISNULL(Prihod.Prihod_Qnt,0) Prihod_Qnt
+				,ISNULL(Prihod.Return_Qnt,0) Return_Qnt
+				,ISNULL(Prihod.Sale_Qnt,0) Sale_Qnt
+				,ISNULL(Prihod.Return_Qnt_In,0) Return_Qnt_In
+				,ISNULL(Prihod.Qnt_Out_WriteOff,0) Qnt_Out_WriteOff
+				,ISNULL(Prihod.Qnt_Out_Move,0) Qnt_Out_Move
+				,0 as ERP
+				,CASE WHEN ISNULL(РегС.КоличествоОстаток,0.0) <=0 THEN 0.0 ELSE ISNULL(РегС.КоличествоОстаток,0.0) END as OstatokPrev
+			FROM $Справочник.Номенклатура as t (NOLOCK)
+			LEFT OUTER JOIN $Справочник.Контрагенты as Kontr (NOLOCK) ON Kontr.ID=$t.ОсновнойПоставщик AND Kontr.DESCR <> ''
+			LEFT OUTER JOIN $РегистрОстатки.ПартииТоваров(:Дат~,
+				INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$Регистр.ПартииТоваров.Товар
+				,
+				Склад=:ОсновнойСклад,(Товар),(Количество)) as Рег ON Рег.Товар=t.ID
+			LEFT OUTER JOIN $РегистрОстатки.ПартииТоваров(:ДатСтарая~,
+				INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$Регистр.ПартииТоваров.Товар
+				,
+				Склад=:ОсновнойСклад,(Товар),(Количество)) as РегС ON РегС.Товар=t.ID
+			LEFT OUTER JOIN
+			(
+				SELECT
+					 $r.Товар as Товар
+					,SUM(CASE WHEN (j.IDDOCDEF=$ВидДокумента.ПриходнаяНакладная) OR
+								   (:FirmaID <> 99 AND j.IDDOCDEF=$ВидДокумента.ОтгрузкаИзРЦ)
+								THEN $r.Количество 
+								ELSE 0.0 
+						 END
+						) as Prihod_Qnt
+					,SUM(CASE WHEN $r.СуммаПродажиРуб=0 AND ISNULL(op.Operation,'')='Операция_ВозвратПоставщику' THEN $r.Количество ELSE 0.0 END) as Return_Qnt
+					,SUM(CASE WHEN ($r.СуммаПродажиРуб <> 0 OR ISNULL(op.Operation,'')='Операция_Сборка') AND r.DEBKRED=1 THEN $r.Количество ELSE 0.0 END) as Sale_Qnt
+					,SUM(CASE WHEN $r.СуммаПродажиРуб <> 0 AND ISNULL(op.Operation,'')='Операция_ВозвратОтПокупателя' THEN $r.Количество ELSE 0.0 END) as Return_Qnt_In
+					,SUM(CASE WHEN op.Operation = 'Операция_Списание' THEN $r.Количество ELSE 0.0 END) as Qnt_Out_WriteOff
+					,SUM(CASE WHEN :FirmaID=99 AND j.IDDOCDEF=$ВидДокумента.ОтгрузкаИзРЦ THEN  $r.Количество ELSE 0.0 END) as Qnt_Out_Move
+				FROM _1SJOURN as j (NOLOCK)
+				INNER JOIN $Регистр.ПартииТоваров as r (NOLOCK) ON r.IDDOC=j.IDDOC
+				LEFT OUTER JOIN __OperationValue as op (NOLOCK) ON op.Value=$r.КодОперации
+				INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$r.Товар
+				WHERE j.DATE_TIME_IDDOC BETWEEN :Дат AND :Дат~
+				  AND j.$ФлагРегистра.ПартииТоваров=1
+				  AND $r.Склад=:ОсновнойСклад
+				GROUP BY
+					$r.Товар
+			) Prihod ON Prihod.Товар=t.ID
+			LEFT OUTER JOIN
+			(
+				SELECT
+					A.Товар, $rc.Цена as Цена  --, $k.КодЦентра as ClientID
+				  , CASE WHEN rc.IDDOCDEF=$ВидДокумента.ОтгрузкаИзРЦ 
+						THEN 
+							(
+								SELECT	TOP 1
+									$_k.КодЦентра
+								FROM $Регистр.ПартииТоваров as _rp (NOLOCK)
+								INNER JOIN $Справочник.Контрагенты as _k (NOLOCK) ON _k.ID=$_rp.Клиент
+								WHERE _rp.IDDOC=rc.IDDOC AND $_rp.Товар=$rc.Товар
+							)
+						ELSE $k.КодЦентра
+					END as ClientID
+				  , CAST(LEFT(A.Position,8) as DateTime) as DataZak
+				FROM
+				(
+					SELECT
+						 $rc.Товар as Товар
+						,MAX(rc.DATE_TIME_IDDOC) as Position
+					FROM $Регистр.ЦеныЗакупки as rc (NOLOCK)
+					INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$rc.Товар
+					WHERE rc.DATE_TIME_IDDOC < :Дат~ -- AND $rc.Поставщик <> $ПустойИД
+					GROUP BY
+						 $rc.Товар
+				) A
+				INNER JOIN $Регистр.ЦеныЗакупки as rc (NOLOCK) ON $rc.Товар=A.Товар AND rc.DATE_TIME_IDDOC=A.Position
+				LEFT OUTER JOIN $Справочник.Контрагенты as k (NOLOCK) ON k.ID=$rc.Поставщик
+			) B ON B.Товар=t.ID
+			WHERE $t.КодЦентра <> 0 AND  $t.КодЦентра <> 32319
+			  AND ($t.ВидТовара = $Перечисление.ВидыТоваров.Товар OR $t.ВидТовара = $Перечисление.ВидыТоваров.Материал) AND 
+				  (				
+	
+					($t.Заблокирован=1 AND (ISNULL(Рег.КоличествоОстаток,0.0) > 0 OR ISNULL(РегС.КоличествоОстаток,0.0) > 0)) OR 
+					($t.Заблокирован=1 AND ISNULL(Sale_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=1 AND ISNULL(Return_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=1 AND ISNULL(Return_Qnt_In,0.0) > 0) OR 
+					($t.Заблокирован=1 AND ISNULL(Qnt_Out_WriteOff,0.0) > 0) OR  
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=1) OR
+					($t.Заблокирован=0 AND $t.Уцененный = 1) OR
+					($t.Заблокирован=0 AND :FirmaID = 99)
+	
+					OR 
+	
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND (ISNULL(Рег.КоличествоОстаток,0.0) > 0 OR ISNULL(РегС.КоличествоОстаток,0.0) > 0)) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Sale_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Return_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Return_Qnt_In,0.0) > 0) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Qnt_Out_WriteOff,0.0) > 0)
+				  )
+	) ZZ
+	WHERE PurchasePrice <> 0
+	ORDER BY Data, SKU, DataZak DESC
+	`
+}
+
+func GetSelectForAbmFromShop() string {
+	return `
+	SELECT	*
+	FROM
+	(
+			SELECT DISTINCT
+				 :Дат~~ as Data
+				,$t.КодЦентра as SKU
+				,(
+					SELECT TOP 1
+						$ed.ШтрихКод
+					FROM $Справочник.Единицы as ed (NOLOCK)
+					WHERE ed.ParentEXT=t.ID AND $ed.ШтрихКод <> '' AND SUBSTRING($ed.ШтрихКод,1,1) <> '2'
+				 ) as Code
+				,CASE 
+					WHEN $t.Заблокирован=1 THEN 0
+					WHEN $t.ВМатрицеЗаказов=0 THEN 0
+					WHEN $t.Уцененный = 1 THEN 0
+					ELSE 1
+				 END as Active
+				,CASE WHEN $t.ВУпаковке = 0 THEN 1 ELSE $t.ВУпаковке END MOQ
+				,CASE WHEN $t.ВУпаковке = 0 THEN 1 ELSE $t.ВУпаковке END USQ
+				,CASE WHEN ISNULL(Рег.КоличествоОстаток,0.0) <=0 THEN 0.0 ELSE ISNULL(Рег.КоличествоОстаток,0.0) END as Ostatok
+				,ISNULL(COALESCE(B.ClientID,$Kontr.КодЦентра),0) as ClientID
+				,ISNULL(B.DataZak,CAST('19000101' as dateTime)) DataZak
+				,CASE WHEN ISNULL(B.Цена,0) = 0 THEN
+								(
+									SELECT TOP 1
+										$rc1.Цена as Цена
+									FROM $Регистр.ЦеныСпецификации as rc1 (NOLOCK)
+									WHERE rc1.DATE_TIME_IDDOC < :Дат~ AND $rc1.Поставщик <> $ПустойИД
+									  AND $rc1.Товар = t.ID
+									  AND $rc1.Поставщик = $t.ОсновнойПоставщик
+									ORDER BY rc1.DATE_TIME_IDDOC DESC
+								)
+							ELSE B.Цена END as PurchasePrice
+				,$ПоследнееЗначение.Номенклатура.РозничнаяЦена(t.ID,:Дат~~) as SalePrice 
+				,ISNULL(Prihod.Prihod_Qnt,0) Prihod_Qnt
+				,ISNULL(Prihod.Return_Qnt,0) Return_Qnt
+				,ISNULL(Prihod.Sale_Qnt,0) Sale_Qnt
+				,ISNULL(Prihod.Return_Qnt_In,0) Return_Qnt_In
+				,ISNULL(Prihod.Qnt_Out_WriteOff,0) Qnt_Out_WriteOff
+				,ISNULL(Prihod.Qnt_Out_Move,0) Qnt_Out_Move
+				,CASE WHEN ta.Товар is NULL THEN 0 ELSE 1 END as ERP
+				,CASE WHEN ISNULL(РегС.КоличествоОстаток,0.0) <=0 THEN 0.0 ELSE ISNULL(РегС.КоличествоОстаток,0.0) END as OstatokPrev
+			FROM $Справочник.Номенклатура as t (NOLOCK)
+			LEFT OUTER JOIN #ТоварыНаАкции as ta ON ta.Товар=t.ID
+			LEFT OUTER JOIN $Справочник.Контрагенты as Kontr (NOLOCK) ON Kontr.ID=$t.ОсновнойПоставщик AND Kontr.DESCR <> ''
+			LEFT OUTER JOIN $РегистрОстатки.ПартииТоваров(:Дат~,
+				INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$Регистр.ПартииТоваров.Товар
+				,
+				Склад=:ОсновнойСклад,(Товар),(Количество)) as Рег ON Рег.Товар=t.ID
+			LEFT OUTER JOIN $РегистрОстатки.ПартииТоваров(:ДатСтарая~,
+				INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$Регистр.ПартииТоваров.Товар
+				,
+				Склад=:ОсновнойСклад,(Товар),(Количество)) as РегС ON РегС.Товар=t.ID
+			LEFT OUTER JOIN
+			(
+				SELECT
+					 $r.Товар as Товар
+					,SUM(CASE WHEN (j.IDDOCDEF=$ВидДокумента.ПриходнаяНакладная) OR
+								   (:FirmaID <> 99 AND j.IDDOCDEF=$ВидДокумента.ОтгрузкаИзРЦ)
+								THEN $r.Количество 
+								ELSE 0.0 
+						 END
+						) as Prihod_Qnt
+					,SUM(CASE WHEN $r.СуммаПродажиРуб=0 AND ISNULL(op.Operation,'')='Операция_ВозвратПоставщику' THEN $r.Количество ELSE 0.0 END) as Return_Qnt
+					,SUM(CASE WHEN ($r.СуммаПродажиРуб <> 0 OR ISNULL(op.Operation,'')='Операция_Сборка') AND r.DEBKRED=1 THEN $r.Количество ELSE 0.0 END) as Sale_Qnt
+					,SUM(CASE WHEN $r.СуммаПродажиРуб <> 0 AND ISNULL(op.Operation,'')='Операция_ВозвратОтПокупателя' THEN $r.Количество ELSE 0.0 END) as Return_Qnt_In
+					,SUM(CASE WHEN op.Operation = 'Операция_Списание' THEN $r.Количество ELSE 0.0 END) as Qnt_Out_WriteOff
+					,SUM(CASE WHEN :FirmaID=99 AND j.IDDOCDEF=$ВидДокумента.ОтгрузкаИзРЦ THEN  $r.Количество ELSE 0.0 END) as Qnt_Out_Move
+				FROM _1SJOURN as j (NOLOCK)
+				INNER JOIN $Регистр.ПартииТоваров as r (NOLOCK) ON r.IDDOC=j.IDDOC
+				LEFT OUTER JOIN __OperationValue as op (NOLOCK) ON op.Value=$r.КодОперации
+				INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$r.Товар
+				WHERE j.DATE_TIME_IDDOC BETWEEN :Дат AND :Дат~
+				  AND j.$ФлагРегистра.ПартииТоваров=1
+				  AND $r.Склад=:ОсновнойСклад
+				GROUP BY
+					$r.Товар
+			) Prihod ON Prihod.Товар=t.ID
+			LEFT OUTER JOIN
+			(
+				SELECT
+					A.Товар, $rc.Цена as Цена  --, $k.КодЦентра as ClientID
+				  , CASE WHEN rc.IDDOCDEF=$ВидДокумента.ОтгрузкаИзРЦ 
+						THEN 
+							(
+								SELECT	TOP 1
+									$_k.КодЦентра
+								FROM $Регистр.ПартииТоваров as _rp (NOLOCK)
+								INNER JOIN $Справочник.Контрагенты as _k (NOLOCK) ON _k.ID=$_rp.Клиент
+								WHERE _rp.IDDOC=rc.IDDOC AND $_rp.Товар=$rc.Товар
+							)
+						ELSE $k.КодЦентра
+					END as ClientID
+				  , CAST(LEFT(A.Position,8) as DateTime) as DataZak
+				FROM
+				(
+					SELECT
+						 $rc.Товар as Товар
+						,MAX(rc.DATE_TIME_IDDOC) as Position
+					FROM $Регистр.ЦеныЗакупки as rc (NOLOCK)
+					INNER JOIN $Справочник.Номенклатура as t (NOLOCK) ON t.ID=$rc.Товар
+					WHERE rc.DATE_TIME_IDDOC < :Дат~ -- AND $rc.Поставщик <> $ПустойИД
+					GROUP BY
+						 $rc.Товар
+				) A
+				INNER JOIN $Регистр.ЦеныЗакупки as rc (NOLOCK) ON $rc.Товар=A.Товар AND rc.DATE_TIME_IDDOC=A.Position
+				LEFT OUTER JOIN $Справочник.Контрагенты as k (NOLOCK) ON k.ID=$rc.Поставщик
+			) B ON B.Товар=t.ID
+			WHERE $t.КодЦентра <> 0 AND  $t.КодЦентра <> 32319
+			  AND ($t.ВидТовара = $Перечисление.ВидыТоваров.Товар OR $t.ВидТовара = $Перечисление.ВидыТоваров.Материал) AND 
+				  (				
+	
+					($t.Заблокирован=1 AND (ISNULL(Рег.КоличествоОстаток,0.0) > 0 OR ISNULL(РегС.КоличествоОстаток,0.0) > 0)) OR 
+					($t.Заблокирован=1 AND ISNULL(Sale_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=1 AND ISNULL(Return_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=1 AND ISNULL(Return_Qnt_In,0.0) > 0) OR 
+					($t.Заблокирован=1 AND ISNULL(Qnt_Out_WriteOff,0.0) > 0) OR  
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=1) OR
+					($t.Заблокирован=0 AND $t.Уцененный = 1) OR
+					($t.Заблокирован=0 AND :FirmaID = 99)
+	
+					OR 
+	
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND (ISNULL(Рег.КоличествоОстаток,0.0) > 0 OR ISNULL(РегС.КоличествоОстаток,0.0) > 0)) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Sale_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Return_Qnt,0.0) > 0) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Return_Qnt_In,0.0) > 0) OR 
+					($t.Заблокирован=0 AND $t.ВМатрицеЗаказов=0 AND ISNULL(Qnt_Out_WriteOff,0.0) > 0)
+				  )
+	) ZZ
+	ORDER BY Data, SKU, DataZak DESC
+	`
+}
+
 func Get() string {
 	return `
 	`
@@ -640,4 +1108,12 @@ func InitScript() {
 	ScriptMain["ПолучитьSuppliers"] = GetSuppliers()
 	ScriptMain["ПолучитьSchedule"] = GetSchedule()
 	ScriptMain["ПолучитьScheduleNew"] = GetScheduleNew()
+	ScriptMain["ПолучитьListYesterdayBody_1"] = GetListYesterdayBody_1()
+	ScriptMain["ПолучитьListYesterdayBody_2"] = GetListYesterdayBody_2()
+	ScriptMain["ПолучитьListYesterdayBody_3"] = GetListYesterdayBody_3()
+	ScriptMain["ПолучитьListSkuAll"] = GetListSkuAll()
+	ScriptMain["ПолучитьТекущиеОстаткиПоРЦ"] = GetCurrentBalancesRC()
+	ScriptMain["ПолучитьСписокТоваровНаАкциях"] = GetListProductsOnShares()
+	ScriptMain["ПолучитьВыборкуДляАвмОтРЦ"] = GetSelectForAbmFromRC()
+	ScriptMain["ПолучитьВыборкуДляАвмОтМагазина"] = GetSelectForAbmFromShop()
 }
